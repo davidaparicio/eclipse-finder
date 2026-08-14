@@ -162,9 +162,9 @@ def plot_eclipse(dt_min: datetime, dt_max: datetime) -> tuple[datetime, bytes]:
 
 
 @app.local_entrypoint()
-def run():
-    dt_a = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    dt_b = datetime(2040, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+def run(start: str = "2020-01-01", end: str = "2040-01-01"):
+    dt_a = datetime.fromisoformat(start).replace(tzinfo=timezone.utc)
+    dt_b = datetime.fromisoformat(end).replace(tzinfo=timezone.utc)
 
     # Generate even-hour spaced intervals
     dts = gen_dts(dt_a, dt_b, 3600)
