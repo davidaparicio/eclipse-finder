@@ -4,11 +4,12 @@ Script to plot all eclipses 2020-2040
 Run this using `modal run calculate.py` (requires a Modal account)
 """
 import io
+import os
 from datetime import datetime, timedelta, timezone
 
 import modal
 
-stub = modal.Stub()
+app = modal.App()
 
 image = modal.Image.debian_slim().pip_install(
     "scipy",
@@ -53,7 +54,7 @@ def sun_moon_separation(lat: float, lon: float, t: float) -> float:
     return sep.deg
 
 
-@stub.function(image=image)
+@app.function(image=image)
 def find_eclipse_location(dt: datetime) -> tuple[datetime, float, float] | None:
     """Given a timestamp, return the location on earth of an eclipse, or None."""
     t = datetime.timestamp(dt)
@@ -72,7 +73,7 @@ def find_eclipse_location(dt: datetime) -> tuple[datetime, float, float] | None:
 
     if ret.fun < 1e-3:
         lat, lon = ret.x
-        return (dt, lat, lon)
+        return (dt, float(lat), float(lon))
     else:
         return None
 
@@ -86,7 +87,7 @@ def gen_dts(dt_a: datetime, dt_b: datetime, sec_delta: float) -> list[datetime]:
     return dts
 
 
-@stub.function(image=image)
+@app.function(image=image)
 def plot_path(dts: list[datetime], lats: list[float], lons: list[float]) -> bytes:
     # Set up a world map
     pyplot.figure(figsize=(6, 6))
@@ -140,7 +141,7 @@ def plot_path(dts: list[datetime], lats: list[float], lons: list[float]) -> byte
     return buf.getvalue()
 
 
-@stub.function(image=image)
+@app.function(image=image)
 def plot_eclipse(dt_min: datetime, dt_max: datetime) -> tuple[datetime, bytes]:
     # Generate minute-level timestamps
     print(f"Finding path of eclipse from {dt_min} to {dt_max}")
@@ -160,7 +161,7 @@ def plot_eclipse(dt_min: datetime, dt_max: datetime) -> tuple[datetime, bytes]:
     return dts[0], png_data
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     dt_a = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     dt_b = datetime(2040, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
@@ -181,6 +182,7 @@ def run():
     eclipses = [(min(e), max(e)) for e in eclipses]
 
     # For each eclipse, plot the path
+    os.makedirs("output", exist_ok=True)
     for dt, png_data in plot_eclipse.starmap(eclipses):
         with open(f"output/eclipse-{dt.date()}.png", "wb") as f:
             f.write(png_data)
